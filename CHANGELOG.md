@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Added
+
+- MCP tool `get_raw`: retrieves the raw bytes of any file in a collection by path
+  (`qmd://<collection>/<rel>` or `<collection>/<rel>`), bypassing the search index —
+  so it serves non-markdown files (scripts, images, assets) that `get` cannot.
+  Text is returned as text; binary as a base64 `blob` with an inferred `mimeType`.
+  Path resolution is confined to the collection root (path-traversal guard) and
+  read-only, with a `maxBytes` cap (default 64KB).
+
 ## [2.6.3] - 2026-06-24
 
 ### Added

@@ -10,7 +10,8 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { readFile, stat } from "node:fs/promises";
+import { join, dirname, resolve as resolvePath, sep } from "node:path";
 import { fileURLToPath } from "url";
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -533,6 +534,95 @@ Intent-aware lex (C++ performance, not sports):
       }
 
       return { content };
+    }
+  );
+
+  // ---------------------------------------------------------------------------
+  // Tool: qmd_get_raw (Retrieve raw file bytes, any type — bypasses the index)
+  // ---------------------------------------------------------------------------
+
+  const TEXT_MIME: Record<string, string> = {
+    sh: "text/x-shellscript", md: "text/markdown", txt: "text/plain",
+    json: "application/json", yaml: "text/yaml", yml: "text/yaml",
+    ts: "text/x-typescript", js: "text/javascript", py: "text/x-python",
+    csv: "text/csv", xml: "application/xml", html: "text/html", css: "text/css",
+    toml: "text/plain", ini: "text/plain",
+  };
+  const BIN_MIME: Record<string, string> = {
+    png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif",
+    webp: "image/webp", svg: "image/svg+xml", pdf: "application/pdf", zip: "application/zip",
+  };
+  const extOf = (p: string): string => {
+    const i = p.lastIndexOf(".");
+    return i === -1 ? "" : p.slice(i + 1).toLowerCase();
+  };
+
+  server.registerTool(
+    "get_raw",
+    {
+      title: "Get Raw File",
+      description: "Retrieve the raw bytes of ANY file in a collection by path ('qmd://<collection>/<rel>' or '<collection>/<rel>'), bypassing the search index. Unlike `get`, this serves non-markdown too (scripts, images, assets). Text returns as text; binary as a base64 blob.",
+      annotations: { readOnlyHint: true, openWorldHint: false },
+      inputSchema: {
+        file: z.string().describe("Path 'qmd://<collection>/<rel>' or '<collection>/<rel>'."),
+        maxBytes: z.number().optional().default(DEFAULT_MULTI_GET_MAX_BYTES).describe("Reject files larger than this (default: 65536 = 64KB)"),
+      },
+    },
+    async ({ file, maxBytes }) => {
+      const cap = maxBytes || DEFAULT_MULTI_GET_MAX_BYTES;
+      const err = (text: string) => ({ content: [{ type: "text" as const, text }], isError: true });
+
+      // Parse '<collection>/<rel>' (optionally prefixed with qmd://)
+      let p = file.startsWith("qmd://") ? file.slice("qmd://".length) : file;
+      p = p.replace(/^\/+/, "");
+      const slash = p.indexOf("/");
+      if (slash <= 0 || slash === p.length - 1) {
+        return err(`Invalid path: expected '<collection>/<rel>', got '${file}'`);
+      }
+      const collectionName = p.slice(0, slash);
+      const rel = p.slice(slash + 1);
+
+      // Resolve the collection's on-disk root
+      const col = (await store.listCollections()).find(c => c.name === collectionName);
+      if (!col) return err(`Collection not found: ${collectionName}`);
+      const root = resolvePath(col.pwd);
+      const abs = resolvePath(root, rel);
+
+      // Path-traversal guard: the resolved path MUST stay inside the collection root
+      if (abs !== root && !abs.startsWith(root + sep)) {
+        return err(`Path escapes collection root: ${file}`);
+      }
+
+      // Stat + size cap + read
+      let data: Buffer;
+      try {
+        const st = await stat(abs);
+        if (st.isDirectory()) return err(`Path is a directory: ${file}`);
+        if (st.size > cap) return err(`File too large: ${st.size} bytes > maxBytes ${cap}`);
+        data = await readFile(abs);
+      } catch {
+        return err(`File not found: ${file}`);
+      }
+
+      const uri = `qmd://${encodeQmdPath(`${collectionName}/${rel}`)}`;
+      const name = `${collectionName}/${rel}`;
+      const ext = extOf(rel);
+      const isBinary = data.includes(0); // NUL byte → treat as binary
+
+      if (!isBinary) {
+        return {
+          content: [{
+            type: "resource" as const,
+            resource: { uri, name, mimeType: TEXT_MIME[ext] ?? "text/plain", text: data.toString("utf-8") },
+          }],
+        };
+      }
+      return {
+        content: [{
+          type: "resource" as const,
+          resource: { uri, name, mimeType: BIN_MIME[ext] ?? "application/octet-stream", blob: data.toString("base64") },
+        }],
+      };
     }
   );
 
