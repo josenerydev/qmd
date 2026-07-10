@@ -18,10 +18,13 @@ import { createHash } from "crypto";
 import { readFileSync, realpathSync, statSync, mkdirSync } from "node:fs";
 // Note: node:path resolve is not imported — we export our own cross-platform resolve()
 import fastGlob from "fast-glob";
+import { getEncoding } from "js-tiktoken";
 import { qmdHomedir } from "./paths.js";
 import {
   LlamaCpp,
   getDefaultLlamaCpp,
+  getDefaultLLM,
+  isRemoteProvider,
   formatQueryForEmbedding,
   formatDocForEmbedding,
   withLLMSessionForLlm,
@@ -30,6 +33,7 @@ import {
   DEFAULT_GENERATE_MODEL_URI,
   type RerankDocument,
   type ILLMSession,
+  type LLM,
 } from "./llm.js";
 import type {
   NamedCollection,
@@ -81,8 +85,8 @@ export function getEmbeddingFingerprint(model: string = DEFAULT_EMBED_MODEL): st
  * Get the LlamaCpp instance for a store — prefers the store's own instance,
  * falls back to the global singleton.
  */
-function getLlm(store: Store): LlamaCpp {
-  return store.llm ?? getDefaultLlamaCpp();
+function getLlm(store: Store): LLM {
+  return store.llm ?? getDefaultLLM();
 }
 
 // =============================================================================
@@ -1271,7 +1275,7 @@ export type Store = {
   db: Database;
   dbPath: string;
   /** Optional LlamaCpp instance for this store (overrides the global singleton) */
-  llm?: LlamaCpp;
+  llm?: LLM;
   close: () => void;
   ensureVecTable: (dimensions: number) => void;
 
@@ -1958,9 +1962,9 @@ export function createStore(dbPath?: string): Store {
     ensureVecTable: (dimensions: number) => ensureVecTableInternal(db, dimensions),
 
     // Index health
-    getHashesNeedingEmbedding: (model?: string) => getHashesNeedingEmbedding(db, undefined, model ?? store.llm?.embedModelName ?? DEFAULT_EMBED_MODEL),
-    getIndexHealth: (model?: string) => getIndexHealth(db, model ?? store.llm?.embedModelName ?? DEFAULT_EMBED_MODEL),
-    getStatus: (model?: string) => getStatus(db, model ?? store.llm?.embedModelName ?? DEFAULT_EMBED_MODEL),
+    getHashesNeedingEmbedding: (model?: string) => getHashesNeedingEmbedding(db, undefined, model ?? getLlm(store).embedModelName ?? DEFAULT_EMBED_MODEL),
+    getIndexHealth: (model?: string) => getIndexHealth(db, model ?? getLlm(store).embedModelName ?? DEFAULT_EMBED_MODEL),
+    getStatus: (model?: string) => getStatus(db, model ?? getLlm(store).embedModelName ?? DEFAULT_EMBED_MODEL),
 
     // Caching
     getCacheKey,
@@ -1994,8 +1998,8 @@ export function createStore(dbPath?: string): Store {
     searchVec: (query: string, model: string, limit?: number, collectionName?: string, session?: ILLMSession, precomputedEmbedding?: number[]) => searchVec(db, query, model, limit, collectionName, session, precomputedEmbedding),
 
     // Query expansion & reranking
-    expandQuery: (query: string, model?: string, intent?: string) => expandQuery(query, model ?? store.llm?.generateModelName ?? DEFAULT_QUERY_MODEL, db, intent, store.llm),
-    rerank: (query: string, documents: { file: string; text: string }[], model?: string, intent?: string) => rerank(query, documents, model ?? store.llm?.rerankModelName ?? DEFAULT_RERANK_MODEL, db, intent, store.llm),
+    expandQuery: (query: string, model?: string, intent?: string) => expandQuery(query, model ?? getLlm(store).generateModelName ?? DEFAULT_QUERY_MODEL, db, intent, store.llm),
+    rerank: (query: string, documents: { file: string; text: string }[], model?: string, intent?: string) => rerank(query, documents, model ?? getLlm(store).rerankModelName ?? DEFAULT_RERANK_MODEL, db, intent, store.llm),
 
     // Document retrieval
     findDocument: (filename: string, options?: { includeBody?: boolean }) => findDocument(db, filename, options),
@@ -2760,6 +2764,32 @@ export async function chunkDocumentAsync(
  * When filepath and chunkStrategy are provided, uses AST-aware break points
  * for supported code files.
  */
+/**
+ * Tokenizer para dimensionar chunks. No modo remoto usa tiktoken (JS puro, sem
+ * modelo local); no local usa o tokenizer do LlamaCpp. tokenize/detokenize são
+ * do MESMO backend, então o roundtrip (contar → fatiar → truncar) é consistente.
+ */
+type ChunkTokenizer = {
+  tokenize: (text: string) => Promise<number[]>;
+  detokenize: (tokens: number[]) => Promise<string>;
+};
+let _tiktoken: ReturnType<typeof getEncoding> | null = null;
+function getChunkTokenizer(): ChunkTokenizer {
+  if (isRemoteProvider()) {
+    const enc = (_tiktoken ??= getEncoding("cl100k_base"));
+    return {
+      tokenize: async (text) => enc.encode(text),
+      detokenize: async (tokens) => enc.decode(tokens),
+    };
+  }
+  const llm = getDefaultLlamaCpp();
+  return {
+    tokenize: async (text) => (await llm.tokenize(text)) as unknown as number[],
+    detokenize: async (tokens) =>
+      llm.detokenize(tokens as unknown as Parameters<typeof llm.detokenize>[0]),
+  };
+}
+
 export async function chunkDocumentByTokens(
   content: string,
   maxTokens: number = CHUNK_SIZE_TOKENS,
@@ -2769,7 +2799,7 @@ export async function chunkDocumentByTokens(
   chunkStrategy: ChunkStrategy = "regex",
   signal?: AbortSignal
 ): Promise<{ text: string; pos: number; tokens: number }[]> {
-  const llm = getDefaultLlamaCpp();
+  const tok = getChunkTokenizer();
 
   // Use moderate chars/token estimate (prose ~4, code ~2, mixed ~3)
   // If chunks exceed limit, they'll be re-split with actual ratio
@@ -2792,7 +2822,7 @@ export async function chunkDocumentByTokens(
   const pushChunkWithinTokenLimit = async (text: string, pos: number): Promise<void> => {
     if (signal?.aborted) return;
 
-    const tokens = await llm.tokenize(text);
+    const tokens = await tok.tokenize(text);
     if (tokens.length <= maxTokens || text.length <= 1) {
       results.push({ text, pos, tokens: tokens.length });
       return;
@@ -2829,7 +2859,7 @@ export async function chunkDocumentByTokens(
       || subChunks[0]?.text.length === text.length
     ) {
       const fallbackTokens = tokens.slice(0, Math.max(1, maxTokens));
-      const truncatedText = await llm.detokenize(fallbackTokens);
+      const truncatedText = await tok.detokenize(fallbackTokens);
       results.push({
         text: truncatedText,
         pos,
@@ -3729,12 +3759,12 @@ export async function searchVec(db: Database, query: string, model: string, limi
 // Embeddings
 // =============================================================================
 
-async function getEmbedding(text: string, model: string, isQuery: boolean, session?: ILLMSession, llmOverride?: LlamaCpp): Promise<number[] | null> {
+async function getEmbedding(text: string, model: string, isQuery: boolean, session?: ILLMSession, llmOverride?: LLM): Promise<number[] | null> {
   // Format text using the appropriate prompt template
   const formattedText = isQuery ? formatQueryForEmbedding(text, model) : formatDocForEmbedding(text, undefined, model);
   const result = session
     ? await session.embed(formattedText, { model, isQuery })
-    : await (llmOverride ?? getDefaultLlamaCpp()).embed(formattedText, { model, isQuery });
+    : await (llmOverride ?? getDefaultLLM()).embed(formattedText, { model, isQuery });
   return result?.embedding || null;
 }
 
@@ -3889,7 +3919,7 @@ function removeIncompleteEmbeddings(db: Database, expectedChunksByHash: Map<stri
 // Query expansion
 // =============================================================================
 
-export async function expandQuery(query: string, model: string = DEFAULT_QUERY_MODEL, db: Database, intent?: string, llmOverride?: LlamaCpp): Promise<ExpandedQuery[]> {
+export async function expandQuery(query: string, model: string = DEFAULT_QUERY_MODEL, db: Database, intent?: string, llmOverride?: LLM): Promise<ExpandedQuery[]> {
   // Check cache first — stored as JSON preserving types
   const cacheKey = getCacheKey("expandQuery", { query, model, ...(intent && { intent }) });
   const cached = getCachedResult(db, cacheKey);
@@ -3909,7 +3939,7 @@ export async function expandQuery(query: string, model: string = DEFAULT_QUERY_M
     }
   }
 
-  const llm = llmOverride ?? getDefaultLlamaCpp();
+  const llm = llmOverride ?? getDefaultLLM();
   // Note: LlamaCpp uses hardcoded model, model parameter is ignored
   const results = await llm.expandQuery(query, { intent });
 
@@ -3930,7 +3960,7 @@ export async function expandQuery(query: string, model: string = DEFAULT_QUERY_M
 // Reranking
 // =============================================================================
 
-export async function rerank(query: string, documents: { file: string; text: string }[], model: string = DEFAULT_RERANK_MODEL, db: Database, intent?: string, llmOverride?: LlamaCpp): Promise<{ file: string; score: number }[]> {
+export async function rerank(query: string, documents: { file: string; text: string }[], model: string = DEFAULT_RERANK_MODEL, db: Database, intent?: string, llmOverride?: LLM): Promise<{ file: string; score: number }[]> {
   // Prepend intent to rerank query so the reranker scores with domain context
   const rerankQuery = intent ? `${intent}\n\n${query}` : query;
 
@@ -3955,7 +3985,7 @@ export async function rerank(query: string, documents: { file: string; text: str
 
   // Rerank uncached documents using LlamaCpp
   if (uncachedDocsByChunk.size > 0) {
-    const llm = llmOverride ?? getDefaultLlamaCpp();
+    const llm = llmOverride ?? getDefaultLLM();
     const uncachedDocs = [...uncachedDocsByChunk.values()];
     const rerankResult = await llm.rerank(rerankQuery, uncachedDocs, { model });
 

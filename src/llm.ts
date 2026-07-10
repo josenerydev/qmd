@@ -10,6 +10,7 @@ import type {
   LlamaEmbeddingContext,
   Token as LlamaToken,
 } from "node-llama-cpp";
+import { OpenRouterLLM } from "./openrouter.js";
 
 type StdoutChunk = string | Uint8Array;
 type WriteCallback = (err?: Error | null) => void;
@@ -212,7 +213,7 @@ export type LLMSessionOptions = {
 export interface ILLMSession {
   embed(text: string, options?: EmbedOptions): Promise<EmbeddingResult | null>;
   embedBatch(texts: string[], options?: EmbedOptions): Promise<(EmbeddingResult | null)[]>;
-  expandQuery(query: string, options?: { context?: string; includeLexical?: boolean }): Promise<Queryable[]>;
+  expandQuery(query: string, options?: { context?: string; includeLexical?: boolean; intent?: string }): Promise<Queryable[]>;
   rerank(query: string, documents: RerankDocument[], options?: RerankOptions): Promise<RerankResult>;
   /** Whether this session is still valid (not released or aborted) */
   readonly isValid: boolean;
@@ -538,13 +539,23 @@ export interface LLM {
    * Expand a search query into multiple variations for different backends.
    * Returns a list of Queryable objects.
    */
-  expandQuery(query: string, options?: { context?: string, includeLexical?: boolean }): Promise<Queryable[]>;
+  expandQuery(query: string, options?: { context?: string, includeLexical?: boolean, intent?: string }): Promise<Queryable[]>;
 
   /**
    * Rerank documents by relevance to a query
    * Returns list of documents with relevance scores (higher = more relevant)
    */
   rerank(query: string, documents: RerankDocument[], options?: RerankOptions): Promise<RerankResult>;
+
+  /**
+   * Batch embeddings for multiple texts
+   */
+  embedBatch(texts: string[], options?: EmbedOptions): Promise<(EmbeddingResult | null)[]>;
+
+  /** Active model names — used by the store/index for keying and status. */
+  readonly embedModelName: string;
+  readonly rerankModelName: string;
+  readonly generateModelName: string;
 
   /**
    * Dispose of resources
@@ -1739,11 +1750,11 @@ export class LlamaCpp implements LLM {
  * Coordinates with LlamaCpp idle timeout to prevent disposal during active sessions.
  */
 class LLMSessionManager {
-  private llm: LlamaCpp;
+  private llm: LLM;
   private _activeSessionCount = 0;
   private _inFlightOperations = 0;
 
-  constructor(llm: LlamaCpp) {
+  constructor(llm: LLM) {
     this.llm = llm;
   }
 
@@ -1779,7 +1790,7 @@ class LLMSessionManager {
     this._inFlightOperations = Math.max(0, this._inFlightOperations - 1);
   }
 
-  getLlamaCpp(): LlamaCpp {
+  getLlamaCpp(): LLM {
     return this.llm;
   }
 }
@@ -1912,7 +1923,7 @@ let defaultSessionManager: LLMSessionManager | null = null;
  * Get the session manager for the default LlamaCpp instance.
  */
 function getSessionManager(): LLMSessionManager {
-  const llm = getDefaultLlamaCpp();
+  const llm = getDefaultLLM();
   if (!defaultSessionManager || defaultSessionManager.getLlamaCpp() !== llm) {
     defaultSessionManager = new LLMSessionManager(llm);
   }
@@ -1952,7 +1963,7 @@ export async function withLLMSession<T>(
  * Unlike withLLMSession, this does not use the global singleton.
  */
 export async function withLLMSessionForLlm<T>(
-  llm: LlamaCpp,
+  llm: LLM,
   fn: (session: ILLMSession) => Promise<T>,
   options?: LLMSessionOptions
 ): Promise<T> {
@@ -2051,6 +2062,40 @@ export function getDefaultLlamaCpp(): LlamaCpp {
     defaultLlamaCpp = new LlamaCpp();
   }
   return defaultLlamaCpp;
+}
+
+let defaultRemoteLLM: LLM | null = null;
+
+/**
+ * Provider-aware default LLM. When QMD_LLM_PROVIDER selects a remote backend
+ * (or QMD_LLM_BASE_URL is set without a provider), returns the remote adapter;
+ * otherwise the local LlamaCpp singleton. Used at inference points so the whole
+ * pipeline (embed/rerank) can run against a remote provider without local models.
+ */
+/**
+ * True when env selects a remote LLM backend (QMD_LLM_PROVIDER=openrouter|remote,
+ * or QMD_LLM_BASE_URL set without a provider). Drives both getDefaultLLM and the
+ * chunk tokenizer choice (remote → tiktoken, no local model loaded).
+ */
+export function isRemoteProvider(): boolean {
+  const provider = (process.env.QMD_LLM_PROVIDER ?? "").toLowerCase();
+  return provider === "openrouter" || provider === "remote" || (provider === "" && !!process.env.QMD_LLM_BASE_URL);
+}
+
+export function getDefaultLLM(): LLM {
+  const baseUrl = process.env.QMD_LLM_BASE_URL;
+  if (!isRemoteProvider()) return getDefaultLlamaCpp();
+  if (!defaultRemoteLLM) {
+    if (!baseUrl) throw new Error("QMD_LLM_BASE_URL não definida para o provider remoto.");
+    defaultRemoteLLM = new OpenRouterLLM({
+      baseUrl: baseUrl.replace(/\/$/, ""),
+      apiKey: process.env.QMD_LLM_API_KEY ?? "",
+      embedModel: resolveEmbedModel(),
+      rerankModel: resolveRerankModel(),
+      generateModel: resolveGenerateModel(),
+    });
+  }
+  return defaultRemoteLLM;
 }
 
 /**

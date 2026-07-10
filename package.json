@@ -59,6 +59,7 @@
     "@modelcontextprotocol/sdk": "1.29.0",
     "better-sqlite3": "12.10.0",
     "fast-glob": "3.3.3",
+    "js-tiktoken": "^1.0.21",
     "node-llama-cpp": "3.18.1",
     "picomatch": "4.0.4",
     "sqlite-vec": "0.1.9",
