@@ -1,9 +1,11 @@
 /**
- * openrouter.ts — backend de LLM REMOTO para o QMD.
+ * openai-compat.ts — backend de LLM REMOTO para o QMD.
  *
  * Implementa o contrato `LLM` (embed/embedBatch/rerank + stubs) contra um endpoint
- * HTTP configurável: embeddings compatíveis com OpenAI e rerank estilo Cohere.
- * Sem inferência local, sem modelos GGUF. Selecionado por env (ver getDefaultLLM em llm.ts).
+ * HTTP configurável, compatível com a API da OpenAI (embeddings) e com rerank
+ * estilo Cohere. Serve qualquer proxy OpenAI-compat — hoje o alvo é um LiteLLM
+ * local, que roteia para o provider upstream (ex.: OpenRouter). Sem inferência
+ * local, sem modelos GGUF. Selecionado por env (ver getDefaultLLM em llm.ts).
  *
  * Importa apenas TIPOS de llm.ts → sem dependência de runtime (evita ciclo de import).
  */
@@ -20,7 +22,7 @@ import type {
   RerankOptions,
 } from "./llm.js";
 
-export type OpenRouterConfig = {
+export type OpenAICompatConfig = {
   baseUrl: string;
   apiKey: string;
   embedModel: string;
@@ -28,8 +30,8 @@ export type OpenRouterConfig = {
   generateModel: string;
 };
 
-export class OpenRouterLLM implements LLM {
-  constructor(private readonly config: OpenRouterConfig) {
+export class OpenAICompatLLM implements LLM {
+  constructor(private readonly config: OpenAICompatConfig) {
     if (!config.apiKey) {
       throw new Error("QMD_LLM_API_KEY não definida — o provider remoto exige credencial.");
     }
@@ -98,7 +100,7 @@ export class OpenRouterLLM implements LLM {
       return { results, model };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.warn(`[openrouter] rerank indisponível, mantendo ordem de entrada: ${msg}`);
+      console.warn(`[openai-compat] rerank indisponível, mantendo ordem de entrada: ${msg}`);
       const results = documents.map((d, index) => ({
         file: d.file,
         score: 1 - index / documents.length,

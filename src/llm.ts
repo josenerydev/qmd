@@ -10,7 +10,7 @@ import type {
   LlamaEmbeddingContext,
   Token as LlamaToken,
 } from "node-llama-cpp";
-import { OpenRouterLLM } from "./openrouter.js";
+import { OpenAICompatLLM } from "./openai-compat.js";
 
 type StdoutChunk = string | Uint8Array;
 type WriteCallback = (err?: Error | null) => void;
@@ -2087,7 +2087,7 @@ export function getDefaultLLM(): LLM {
   if (!isRemoteProvider()) return getDefaultLlamaCpp();
   if (!defaultRemoteLLM) {
     if (!baseUrl) throw new Error("QMD_LLM_BASE_URL não definida para o provider remoto.");
-    defaultRemoteLLM = new OpenRouterLLM({
+    defaultRemoteLLM = new OpenAICompatLLM({
       baseUrl: baseUrl.replace(/\/$/, ""),
       apiKey: process.env.QMD_LLM_API_KEY ?? "",
       embedModel: resolveEmbedModel(),

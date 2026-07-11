@@ -800,6 +800,31 @@ export async function startMcpHttpServer(
     const pathname = nodeReq.url || "/";
 
     try {
+      // --- Auth do backend MCP (patch LOCAL do fork; não enviar ao upstream) ----
+      // Exige `Authorization: Bearer <QMD_MCP_AUTH_TOKEN>` nas rotas /mcp (POST/GET/
+      // DELETE). O gateway LiteLLM apresenta esse token (auth_type: bearer_token).
+      // `/health` (e os REST /query,/search) ficam FORA do guard. Token ausente no
+      // ambiente = modo aberto (fail-open, avisado no boot) p/ dev local e rollback.
+      if (pathname === "/mcp") {
+        const requiredToken = process.env.QMD_MCP_AUTH_TOKEN;
+        if (requiredToken) {
+          const auth = nodeReq.headers["authorization"];
+          const presented = typeof auth === "string" && auth.startsWith("Bearer ")
+            ? auth.slice("Bearer ".length).trim()
+            : "";
+          if (presented !== requiredToken) {
+            nodeRes.writeHead(401, { "Content-Type": "application/json", "WWW-Authenticate": "Bearer" });
+            nodeRes.end(JSON.stringify({
+              jsonrpc: "2.0",
+              error: { code: -32002, message: "Unauthorized" },
+              id: null,
+            }));
+            log(`${ts()} ${nodeReq.method} /mcp 401 unauthorized (${Date.now() - reqStart}ms)`);
+            return;
+          }
+        }
+      }
+
       if (pathname === "/health" && nodeReq.method === "GET") {
         const body = JSON.stringify({ status: "ok", uptime: Math.floor((Date.now() - startTime) / 1000) });
         nodeRes.writeHead(200, { "Content-Type": "application/json" });
@@ -990,6 +1015,11 @@ export async function startMcpHttpServer(
   });
 
   log(`QMD MCP server listening on http://${host}:${actualPort}/mcp`);
+  if (process.env.QMD_MCP_AUTH_TOKEN) {
+    log(`[auth] /mcp exige Bearer token (QMD_MCP_AUTH_TOKEN definido); /health aberto`);
+  } else {
+    log(`[auth] AVISO: QMD_MCP_AUTH_TOKEN não definido — /mcp ABERTO (sem autenticação)`);
+  }
   return { httpServer, port: actualPort, stop };
 }
 
