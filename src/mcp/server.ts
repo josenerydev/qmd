@@ -663,20 +663,20 @@ Intent-aware lex (C++ performance, not sports):
   );
 
   // ---------------------------------------------------------------------------
-  // Tool: refresh (pull + reindex + embed — atualiza o índice SEM restart)
-  // Primeira tool MUTANTE do servidor: puxa das fontes configuradas e reindexa.
+  // Tool: refresh (pull + reindex + embed — updates the index WITHOUT a restart)
+  // The server's first MUTATING tool: pulls from the configured sources and reindexes.
   // ---------------------------------------------------------------------------
 
   server.registerTool(
     "refresh",
     {
       title: "Refresh Sources",
-      description: "Atualiza o índice a partir das fontes configuradas SEM reiniciar: faz git pull das collections git, reindexa (varre o fs) e embeda o que falta. Use após publicar (git push) um documento para torná-lo pesquisável. Opcionalmente escope com `collections` (apenas FILTRA as fontes existentes — nunca aceita URL/caminho). Um refresh já em curso retorna 'already_running'.",
+      description: "Updates the index from the configured sources WITHOUT restarting: git pulls the git collections, reindexes (walks the fs) and embeds what is missing. Use it after publishing (git push) a document to make it searchable. Optionally scope with `collections` (only FILTERS the existing sources — never accepts a URL/path). A refresh already in flight returns 'already_running'.",
       annotations: { readOnlyHint: false, openWorldHint: true },
       inputSchema: {
         collections: z.array(z.string()).optional().describe(
-          "Filtra quais collections atualizar (subconjunto das fontes já configuradas). " +
-          "Omitir = todas. Só filtra a lista existente; não introduz fonte nova."
+          "Filters which collections to refresh (a subset of the already configured sources). " +
+          "Omit = all of them. It only filters the existing list; it never introduces a new source."
         ),
       },
     },
@@ -832,11 +832,11 @@ export async function startMcpHttpServer(
     const pathname = nodeReq.url || "/";
 
     try {
-      // --- Auth do backend MCP ---------------------------------------------------
-      // Exige `Authorization: Bearer <QMD_MCP_AUTH_TOKEN>` nas rotas /mcp (POST/GET/
-      // DELETE); o cliente (ou gateway intermediário) apresenta esse token.
-      // `/health` (e os REST /query,/search) ficam FORA do guard. Token ausente no
-      // ambiente = modo aberto (fail-open, avisado no boot) p/ dev local e rollback.
+      // --- MCP backend auth ------------------------------------------------------
+      // Requires `Authorization: Bearer <QMD_MCP_AUTH_TOKEN>` on the /mcp routes
+      // (POST/GET/DELETE); the client (or an intermediate gateway) presents that token.
+      // `/health` (and the REST /query,/search) stay OUTSIDE the guard. No token in the
+      // environment = open mode (fail-open, warned at boot) for local dev and rollback.
       if (pathname === "/mcp") {
         const requiredToken = process.env.QMD_MCP_AUTH_TOKEN;
         if (requiredToken) {
@@ -1048,9 +1048,9 @@ export async function startMcpHttpServer(
 
   log(`QMD MCP server listening on http://${host}:${actualPort}/mcp`);
   if (process.env.QMD_MCP_AUTH_TOKEN) {
-    log(`[auth] /mcp exige Bearer token (QMD_MCP_AUTH_TOKEN definido); /health aberto`);
+    log(`[auth] /mcp requires a Bearer token (QMD_MCP_AUTH_TOKEN set); /health is open`);
   } else {
-    log(`[auth] AVISO: QMD_MCP_AUTH_TOKEN não definido — /mcp ABERTO (sem autenticação)`);
+    log(`[auth] WARNING: QMD_MCP_AUTH_TOKEN not set — /mcp is OPEN (no authentication)`);
   }
   return { httpServer, port: actualPort, stop };
 }

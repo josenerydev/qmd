@@ -1,8 +1,8 @@
-# qmd-mcp — imagem do qmd (adapter remoto OpenAI-compatible) + entrypoint de
-# clone/index/serve. Build a partir da RAIZ do repo:
+# qmd-mcp — the qmd image (remote OpenAI-compatible adapter) + a clone/index/serve
+# entrypoint. Build from the ROOT of the repo:
 #   docker build -f deploy/Dockerfile .
-# Nota: sem otimização de imagem por ora; node-llama-cpp fica instalado porém
-# dormente no caminho remoto (o lazy loader não dispara).
+# Note: no image-size optimization for now; node-llama-cpp stays installed but
+# dormant on the remote path (the lazy loader never fires).
 FROM node:22
 
 WORKDIR /app/qmd
@@ -10,9 +10,9 @@ WORKDIR /app/qmd
 COPY package.json package-lock.json* ./
 RUN npm install
 COPY . ./
-RUN npm run build && npm link        # deixa o binário `qmd` no PATH
+RUN npm run build && npm link        # puts the `qmd` binary on PATH
 
-# yq (mikefarah) — o entrypoint lê o sources.yaml (multi-fonte)
+# yq (mikefarah) — the entrypoint reads sources.yaml (multi-source)
 RUN wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 \
     && chmod +x /usr/local/bin/yq
 

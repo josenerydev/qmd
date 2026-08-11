@@ -378,9 +378,9 @@ export async function createStore(options: StoreOptions): Promise<QMDStore> {
   }
   // else: DB-only mode — no external config, use existing store_collections
 
-  // Provider remoto (QMD_LLM_PROVIDER / QMD_LLM_BASE_URL) → usa o adapter remoto
-  // e NÃO instancia um LlamaCpp local (que tentaria baixar/abrir modelos GGUF).
-  // Caso contrário, cria um LlamaCpp por store — lazy-load, auto-unload em 5 min.
+  // Remote provider (QMD_LLM_PROVIDER / QMD_LLM_BASE_URL) → uses the remote adapter
+  // and does NOT instantiate a local LlamaCpp (which would try to download/open GGUF
+  // models). Otherwise, creates one LlamaCpp per store — lazy-load, auto-unload in 5 min.
   const llm = isRemoteProvider()
     ? getDefaultLLM()
     : new LlamaCpp({

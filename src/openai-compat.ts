@@ -1,13 +1,13 @@
 /**
- * openai-compat.ts — backend de LLM REMOTO para o QMD.
+ * openai-compat.ts — REMOTE LLM backend for QMD.
  *
- * Implementa o contrato `LLM` (embed/embedBatch/rerank + stubs) contra um endpoint
- * HTTP configurável, compatível com a API da OpenAI (embeddings) e com rerank
- * estilo Cohere. Serve qualquer provedor/proxy OpenAI-compat — direto (OpenAI,
- * OpenRouter, ...) ou atrás de um gateway, à escolha do deploy. Sem inferência
- * local, sem modelos GGUF. Selecionado por env (ver getDefaultLLM em llm.ts).
+ * Implements the `LLM` contract (embed/embedBatch/rerank + stubs) against a
+ * configurable HTTP endpoint, compatible with the OpenAI API (embeddings) and with
+ * Cohere-style rerank. Serves any OpenAI-compat provider/proxy — directly (OpenAI,
+ * OpenRouter, ...) or behind a gateway, at the deploy's discretion. No local
+ * inference, no GGUF models. Selected by env (see getDefaultLLM in llm.ts).
  *
- * Importa apenas TIPOS de llm.ts → sem dependência de runtime (evita ciclo de import).
+ * Imports only TYPES from llm.ts → no runtime dependency (avoids an import cycle).
  */
 import type {
   LLM,
@@ -33,10 +33,10 @@ export type OpenAICompatConfig = {
 export class OpenAICompatLLM implements LLM {
   constructor(private readonly config: OpenAICompatConfig) {
     if (!config.apiKey) {
-      throw new Error("QMD_LLM_API_KEY não definida — o provider remoto exige credencial.");
+      throw new Error("QMD_LLM_API_KEY is not set — the remote provider requires a credential.");
     }
     if (!config.baseUrl) {
-      throw new Error("QMD_LLM_BASE_URL não definida — o provider remoto exige um endpoint.");
+      throw new Error("QMD_LLM_BASE_URL is not set — the remote provider requires an endpoint.");
     }
   }
 
@@ -82,7 +82,7 @@ export class OpenAICompatLLM implements LLM {
     return vectors.map((v) => (v ? { embedding: v, model } : null));
   }
 
-  /** POST /rerank (estilo Cohere). Degrada para a ordem de entrada se indisponível. */
+  /** POST /rerank (Cohere style). Degrades to the input order when unavailable. */
   async rerank(query: string, documents: RerankDocument[], options?: RerankOptions): Promise<RerankResult> {
     const model = options?.model ?? this.config.rerankModel;
     if (documents.length === 0) return { results: [], model };
@@ -100,7 +100,7 @@ export class OpenAICompatLLM implements LLM {
       return { results, model };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.warn(`[openai-compat] rerank indisponível, mantendo ordem de entrada: ${msg}`);
+      console.warn(`[openai-compat] rerank unavailable, keeping the input order: ${msg}`);
       const results = documents.map((d, index) => ({
         file: d.file,
         score: 1 - index / documents.length,
@@ -111,14 +111,14 @@ export class OpenAICompatLLM implements LLM {
   }
 
   /**
-   * Expansion desligada no modo remoto: o agente envia sub-queries tipadas
-   * (lex/vec/hyde) direto na tool `query` do MCP. Stub sem chamada de rede.
+   * Expansion is off in remote mode: the agent sends typed sub-queries
+   * (lex/vec/hyde) straight to the MCP `query` tool. Stub, no network call.
    */
   async expandQuery(query: string): Promise<Queryable[]> {
     return [{ type: "vec", text: query }];
   }
 
-  /** Não usado no caminho remoto (expandQuery é stub). */
+  /** Unused on the remote path (expandQuery is a stub). */
   async generate(_prompt: string, _options?: GenerateOptions): Promise<GenerateResult | null> {
     return null;
   }
@@ -128,6 +128,6 @@ export class OpenAICompatLLM implements LLM {
   }
 
   async dispose(): Promise<void> {
-    // HTTP stateless — nada a liberar.
+    // Stateless HTTP — nothing to release.
   }
 }

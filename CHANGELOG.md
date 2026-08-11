@@ -8,6 +8,16 @@
   the skill name identifies the product when installed alongside other skills
   (e.g. in `~/.claude/skills` or another repo's `.claude/skills`). The no-clone
   install one-liner changed accordingly; reinstall under the new folder name.
+- Translated every pt-BR comment and message added by this fork to English, so the
+  whole codebase reads in one language. This changes user-facing output: the
+  `[entrypoint]` boot logs, the `[auth]` warning (now
+  `WARNING: QMD_MCP_AUTH_TOKEN not set — /mcp is OPEN`), the `[refresh]`/`qmd refresh`
+  summaries, the remote-provider error messages and the MCP `refresh` tool
+  description. Identifiers are untouched — `already_running`, `RefreshSummary`
+  fields, env var names and log prefixes are unchanged. Note the published
+  `josenerydev/qmd-mcp:latest` image still emits the pt-BR strings until it is
+  rebuilt, so the deploy skill's troubleshooting table matches a from-source build
+  first.
 
 ### Added
 

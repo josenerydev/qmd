@@ -2765,9 +2765,9 @@ export async function chunkDocumentAsync(
  * for supported code files.
  */
 /**
- * Tokenizer para dimensionar chunks. No modo remoto usa tiktoken (JS puro, sem
- * modelo local); no local usa o tokenizer do LlamaCpp. tokenize/detokenize são
- * do MESMO backend, então o roundtrip (contar → fatiar → truncar) é consistente.
+ * Tokenizer used to size chunks. In remote mode it uses tiktoken (pure JS, no local
+ * model); locally it uses LlamaCpp's tokenizer. tokenize/detokenize come from the
+ * SAME backend, so the roundtrip (count → slice → truncate) stays consistent.
  */
 type ChunkTokenizer = {
   tokenize: (text: string) => Promise<number[]>;

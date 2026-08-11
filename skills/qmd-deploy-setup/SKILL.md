@@ -104,7 +104,7 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST http://localhost:8181/mcp   # m
 ```
 
 A 401 on the second call proves the bearer gate is on. If the server logged
-`AVISO: QMD_MCP_AUTH_TOKEN não definido`, stop and fix `.env` — `/mcp` is open.
+`WARNING: QMD_MCP_AUTH_TOKEN not set`, stop and fix `.env` — `/mcp` is open.
 
 ## 6. Wire the MCP client
 
@@ -137,7 +137,7 @@ user pushes new docs to a source, call the `refresh` tool instead of restarting.
 |---|---|
 | Container never healthy, logs stuck on embed | Wrong `QMD_LLM_API_KEY` / model names for that provider — check the first embed error in logs |
 | `401` even with the header | Token in the client differs from `.env`; recreate the container after editing `.env` (`docker compose up -d`) |
-| `AVISO: falha ao clonar '<name>'` | Bad repo URL, or missing/expired token; private repos need `tokenEnv` + the var in `.env` |
+| `WARNING: failed to clone '<name>'` | Bad repo URL, or missing/expired token; private repos need `tokenEnv` + the var in `.env` |
 | Local folder skipped | Folder is not under `./sources/`; `path:` is relative to that mount |
 | Port already in use | Set `QMD_MCP_PORT` in `.env` (compose maps and healthchecks it consistently) |
 | Index stale after pushing docs | Call the MCP `refresh` tool, or set `REFRESH_INTERVAL` |

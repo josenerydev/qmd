@@ -4297,9 +4297,9 @@ if (isMain) {
       break;
 
     case "refresh": {
-      // Atualiza as fontes configuradas SEM restart: git pull + reindex + embed.
-      // Usa a MESMA primitiva da tool MCP `refresh` (SDK store, resolve provider
-      // remoto e sincroniza config internamente). Gatilho típico: cron do container.
+      // Refreshes the configured sources WITHOUT a restart: git pull + reindex + embed.
+      // Uses the SAME primitive as the MCP `refresh` tool (SDK store, which resolves the
+      // remote provider and syncs config internally). Typical trigger: the container cron.
       const { createStore: createSdkStore, refreshSources, formatRefreshSummary } =
         await import("../index.js");
       const cfgPath = getConfigPath();
@@ -4308,7 +4308,7 @@ if (isMain) {
         ...(existsSync(cfgPath) ? { configPath: cfgPath } : {}),
       });
       try {
-        // -c filtra (subconjunto das fontes); sem -c = todas. Só filtra, não injeta.
+        // -c filters (a subset of the sources); without -c = all. It only filters, never injects.
         const refreshCollections = resolveCollectionFilter(cli.opts.collection, false);
         const summary = await refreshSources(sdkStore, {
           collections: refreshCollections.length > 0 ? refreshCollections : undefined,

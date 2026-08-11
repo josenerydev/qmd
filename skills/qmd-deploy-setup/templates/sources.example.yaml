@@ -1,34 +1,34 @@
-# qmd-mcp — fontes indexadas (multi-fonte).
-# Copie para sources.yaml (mesma pasta ./sources/). O container lê /sources/sources.yaml.
-# Sem este arquivo, cai no modo FONTE ÚNICA (QMD_SOURCE_REPO_URL do .env).
+# qmd-mcp — indexed sources (multi-source).
+# Copy to sources.yaml (same ./sources/ folder). The container reads /sources/sources.yaml.
+# Without this file, it falls back to SINGLE-SOURCE mode (QMD_SOURCE_REPO_URL from .env).
 #
-# SEM SEGREDOS: tokens ficam no .env e são referenciados por `tokenEnv`.
-# - fonte git   → clonada na subida em /data/<name>
-# - fonte local → pasta em ./sources/<path> (montada em /sources/<path>)
+# NO SECRETS: tokens live in .env and are referenced by `tokenEnv`.
+# - git source   → cloned at boot into /data/<name>
+# - local source → folder under ./sources/<path> (mounted at /sources/<path>)
 #
-# subdir (OPCIONAL): escopa a fonte a uma subpasta do repo/pasta.
-#   - COM subdir  → baixa SÓ a subpasta (git sparse-checkout) e indexa só ela.
-#   - SEM subdir  → repo/pasta inteiro.
-# mask (OPCIONAL): glob dos arquivos indexados; default '**/*.md'.
+# subdir (OPTIONAL): scopes the source to a subfolder of the repo/folder.
+#   - WITH subdir    → downloads ONLY the subfolder (git sparse-checkout) and indexes just it.
+#   - WITHOUT subdir → the whole repo/folder.
+# mask (OPTIONAL): glob of the files to index; defaults to '**/*.md'.
 #
-# Merge: a query une todas as collections; escope por nome com o parâmetro `collections`.
+# Merge: a query spans every collection; scope by name with the `collections` parameter.
 
 sources:
-  # --- repo git público ------------------------------------------------------
+  # --- public git repo -------------------------------------------------------
   - name: docs
     git: https://github.com/<org>/<repo>
     branch: main
-    context: "Documentação do produto — decisões, guias e referências."
+    context: "Product documentation — decisions, guides and references."
 
-  # --- repo git privado (token no .env, referenciado por nome) ---------------
+  # --- private git repo (token in .env, referenced by name) ------------------
   # - name: internal
   #   git: https://dev.azure.com/<org>/<proj>/_git/<repo>
-  #   tokenEnv: INTERNAL_REPO_TOKEN     # nome da var no .env (o token NÃO fica aqui)
-  #   subdir: docs                      # baixa e indexa só esta pasta
+  #   tokenEnv: INTERNAL_REPO_TOKEN     # var name in .env (the token does NOT live here)
+  #   subdir: docs                      # download and index only this folder
   #   mask: "**/*.{md,txt}"
-  #   context: "Base interna — sobrepõe a documentação pública onde especificado."
+  #   context: "Internal knowledge base — overrides the public docs where specified."
 
-  # --- pasta local (montada em ./sources/<path>) ------------------------------
+  # --- local folder (mounted at ./sources/<path>) -----------------------------
   # - name: notes
   #   path: notes
-  #   context: "Notas locais."
+  #   context: "Local notes."

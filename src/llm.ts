@@ -2086,7 +2086,7 @@ export function getDefaultLLM(): LLM {
   const baseUrl = process.env.QMD_LLM_BASE_URL;
   if (!isRemoteProvider()) return getDefaultLlamaCpp();
   if (!defaultRemoteLLM) {
-    if (!baseUrl) throw new Error("QMD_LLM_BASE_URL não definida para o provider remoto.");
+    if (!baseUrl) throw new Error("QMD_LLM_BASE_URL is not set for the remote provider.");
     defaultRemoteLLM = new OpenAICompatLLM({
       baseUrl: baseUrl.replace(/\/$/, ""),
       apiKey: process.env.QMD_LLM_API_KEY ?? "",

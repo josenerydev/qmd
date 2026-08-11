@@ -1,4 +1,4 @@
-# segredos e config real ficam fora do git — versione só os *.example
+# secrets and real config stay out of git — only the *.example files are versioned
 .env*
 !.env.example
 sources/*

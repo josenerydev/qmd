@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# qmd-mcp — indexa N fontes de documentos (local + git) → serve MCP (HTTP).
-# Fontes declaradas em /sources/sources.yaml (multi-fonte); sem ele, cai no modo
-# fonte única (QMD_SOURCE_REPO_URL). Bloqueia na 1ª subida até indexar.
+# qmd-mcp — indexes N document sources (local + git) → serves MCP (HTTP).
+# Sources declared in /sources/sources.yaml (multi-source); without it, falls back
+# to single-source mode (QMD_SOURCE_REPO_URL). Blocks on first boot until indexed.
 set -uo pipefail
 
 SRC_FILE="/sources/sources.yaml"
 
-# --- monta a URL com token (PAT como user, removendo qualquer 'user@' existente) ---
+# --- build the URL with a token (PAT as user, stripping any existing 'user@') ---
 # Azure DevOps: https://<PAT>@dev.azure.com/…; GitHub: https://<token>@github.com/…
 auth_url() {
   local url="$1" token="${2:-}"
@@ -16,11 +16,11 @@ auth_url() {
   echo "https://${token}@${rest}"
 }
 
-# --- adiciona uma fonte como collection (idempotente; falha isolada não derruba) ---
+# --- register a source as a collection (idempotent; one failure does not bring it down) ---
 # args: name  kind(git|local)  location(url|path)  branch  tokenEnv  context  subdir  mask
-# subdir (opcional): escopa a fonte a uma subpasta do repo/pasta. Para git, baixa SÓ a
-# subpasta via sparse-checkout (download escopado); vazio = repo inteiro.
-# mask (opcional): glob dos arquivos indexados (ex.: '**/*.{md,txt,vtt}'); vazio = '**/*.md'.
+# subdir (optional): scopes the source to a subfolder of the repo/folder. For git, downloads
+# ONLY the subfolder via sparse-checkout (scoped download); empty = the whole repo.
+# mask (optional): glob of the files to index (e.g. '**/*.{md,txt,vtt}'); empty = '**/*.md'.
 add_source() {
   local name="$1" kind="$2" loc="$3" branch="${4:-main}" tokenEnv="${5:-}" context="${6:-}" subdir="${7:-}" mask="${8:-}"
   [ -z "$mask" ] && mask="**/*.md"
@@ -33,19 +33,19 @@ add_source() {
       [ -n "$tokenEnv" ] && token="$(printenv "$tokenEnv" 2>/dev/null || true)"
       url="$(auth_url "$loc" "$token")"
       if [ -n "$subdir" ]; then
-        echo "[entrypoint] clonando fonte '${name}' (${branch}, só a subpasta '${subdir}')..."
+        echo "[entrypoint] cloning source '${name}' (${branch}, only the '${subdir}' subfolder)..."
         if ! git clone --depth 1 --branch "$branch" --filter=blob:none --sparse "$url" "$target"; then
-          echo "[entrypoint] AVISO: falha ao clonar '${name}' — pulando esta fonte"
+          echo "[entrypoint] WARNING: failed to clone '${name}' — skipping this source"
           return 0
         fi
         if ! git -C "$target" sparse-checkout set "$subdir"; then
-          echo "[entrypoint] AVISO: sparse-checkout de '${subdir}' falhou em '${name}' — pulando"
+          echo "[entrypoint] WARNING: sparse-checkout of '${subdir}' failed in '${name}' — skipping"
           return 0
         fi
       else
-        echo "[entrypoint] clonando fonte '${name}' (${branch})..."
+        echo "[entrypoint] cloning source '${name}' (${branch})..."
         if ! git clone --depth 1 --branch "$branch" "$url" "$target"; then
-          echo "[entrypoint] AVISO: falha ao clonar '${name}' — pulando esta fonte"
+          echo "[entrypoint] WARNING: failed to clone '${name}' — skipping this source"
           return 0
         fi
       fi
@@ -53,32 +53,32 @@ add_source() {
   else
     target="/sources/${loc}"
     if [ ! -d "$target" ]; then
-      echo "[entrypoint] AVISO: pasta local '${target}' não existe — pulando '${name}'"
+      echo "[entrypoint] WARNING: local folder '${target}' does not exist — skipping '${name}'"
       return 0
     fi
   fi
   index_path="$target"
   [ -n "$subdir" ] && index_path="${target}/${subdir}"
   if [ ! -d "$index_path" ]; then
-    echo "[entrypoint] AVISO: subpasta '${subdir}' não existe em '${name}' — pulando"
+    echo "[entrypoint] WARNING: subfolder '${subdir}' does not exist in '${name}' — skipping"
     return 0
   fi
-  # mask mudou numa collection existente? recria (add com mesmo nome é no-op no qmd)
+  # mask changed on an existing collection? recreate it (add with the same name is a no-op in qmd)
   local current_mask
   current_mask="$(qmd collection show "$name" 2>/dev/null | sed -n 's/^  Pattern:  //p')"
   if [ -n "$current_mask" ] && [ "$current_mask" != "$mask" ]; then
-    echo "[entrypoint] mask de '${name}' mudou ('${current_mask}' → '${mask}') — recriando collection"
+    echo "[entrypoint] mask of '${name}' changed ('${current_mask}' → '${mask}') — recreating collection"
     qmd collection remove "$name" >/dev/null 2>&1 || true
   fi
   qmd collection add "$index_path" --name "$name" --mask "$mask" 2>/dev/null || true
   [ -n "$context" ] && qmd context add "$index_path" "$context" 2>/dev/null || true
-  echo "[entrypoint] fonte '${name}' → collection registrada (${index_path}, mask ${mask})"
+  echo "[entrypoint] source '${name}' → collection registered (${index_path}, mask ${mask})"
 }
 
-# --- 1. obter + registrar as fontes -------------------------------------------
+# --- 1. fetch + register the sources -------------------------------------------
 if [ -f "$SRC_FILE" ]; then
   n="$(yq '.sources | length' "$SRC_FILE" 2>/dev/null || echo 0)"
-  echo "[entrypoint] multi-fonte: ${n} fonte(s) em ${SRC_FILE}"
+  echo "[entrypoint] multi-source: ${n} source(s) in ${SRC_FILE}"
   i=0
   while [ "$i" -lt "$n" ]; do
     name="$(yq ".sources[$i].name" "$SRC_FILE")"
@@ -97,33 +97,33 @@ if [ -f "$SRC_FILE" ]; then
     i=$((i + 1))
   done
 else
-  # --- fallback: fonte única (QMD_SOURCE_REPO_URL), sem sources.yaml ----------
-  echo "[entrypoint] fonte única (sem ${SRC_FILE})"
+  # --- fallback: single source (QMD_SOURCE_REPO_URL), no sources.yaml ---------
+  echo "[entrypoint] single source (no ${SRC_FILE})"
   add_source "source" git "${QMD_SOURCE_REPO_URL:-}" "${QMD_SOURCE_REPO_BRANCH:-main}" \
     "QMD_SOURCE_REPO_TOKEN" "${QMD_SOURCE_CONTEXT:-}" \
     "" "${QMD_SOURCE_REPO_MASK:-}"
 fi
 
-# --- 2. indexar (BLOQUEIA): pull dos repos git + reindex + embed --------------
+# --- 2. index (BLOCKS): pull the git repos + reindex + embed -------------------
 qmd update --pull || true
 qmd embed
 
-# --- 3. refresh periódico opcional (cron in-container) ------------------------
-# REFRESH_INTERVAL = segundos entre refreshes (git pull + reindex + embed) via
-# `qmd refresh` — a MESMA primitiva da tool MCP `refresh`. Um lockfile serializa
-# este cron com a tool (agente), então os dois não se atropelam.
-# Vazio/0/não-numérico = DESLIGADO: índice fresco só no boot ou sob demanda pela tool.
+# --- 3. optional periodic refresh (in-container cron) -------------------------
+# REFRESH_INTERVAL = seconds between refreshes (git pull + reindex + embed) via
+# `qmd refresh` — the SAME primitive as the MCP `refresh` tool. A lockfile serializes
+# this cron with the tool (agent), so the two never trip over each other.
+# Empty/0/non-numeric = OFF: index refreshed only at boot or on demand via the tool.
 if [ -n "${REFRESH_INTERVAL:-}" ] && [ "${REFRESH_INTERVAL}" -gt 0 ] 2>/dev/null; then
-  echo "[entrypoint] refresh periódico a cada ${REFRESH_INTERVAL}s"
+  echo "[entrypoint] periodic refresh every ${REFRESH_INTERVAL}s"
   (
     while sleep "${REFRESH_INTERVAL}"; do
-      echo "[entrypoint] refresh periódico..."
-      qmd refresh || echo "[entrypoint] AVISO: refresh periódico falhou (segue no ar)"
+      echo "[entrypoint] periodic refresh..."
+      qmd refresh || echo "[entrypoint] WARNING: periodic refresh failed (staying up)"
     done
   ) &
 else
-  echo "[entrypoint] refresh periódico desligado (defina REFRESH_INTERVAL=<segundos> para ligar)"
+  echo "[entrypoint] periodic refresh disabled (set REFRESH_INTERVAL=<seconds> to enable)"
 fi
 
-# --- 4. serve o MCP sobre HTTP ------------------------------------------------
+# --- 4. serve MCP over HTTP ----------------------------------------------------
 exec qmd mcp --http --host 0.0.0.0 --port "${QMD_MCP_PORT:-8181}"

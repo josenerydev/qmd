@@ -1,25 +1,25 @@
-# qmd-mcp — builda a imagem do próprio repo e serve o MCP (HTTP) em localhost.
+# qmd-mcp — builds the image from this repo and serves MCP (HTTP) on localhost.
 #
-#   cp .env.example .env            # preencha provider + token
+#   cp .env.example .env            # fill in provider + token
 #   cp sources/sources.example.yaml sources/sources.yaml
 #   docker compose up -d
 #
-# LLM via spec OpenAI DIRETO com qualquer provedor compatível (QMD_LLM_BASE_URL
-# no .env). Sem gateway embutido: quem quiser um (ex.: LiteLLM) aponta a base
-# URL para ele. O /mcp exige Bearer (QMD_MCP_AUTH_TOKEN); sem token fica ABERTO.
+# LLM over the OpenAI spec DIRECTLY against any compatible provider (QMD_LLM_BASE_URL
+# in .env). No gateway bundled: if you want one (e.g. LiteLLM), point the base URL
+# at it. /mcp requires a Bearer (QMD_MCP_AUTH_TOKEN); without a token it is OPEN.
 services:
   qmd-mcp:
     build:
       context: ..
       dockerfile: deploy/Dockerfile
-    # imagem pré-buildada no Docker Hub; sem ela local, o compose builda do repo.
-    # Pular o build: docker compose pull && docker compose up -d --no-build
+    # prebuilt image on Docker Hub; without it locally, compose builds from the repo.
+    # Skip the build: docker compose pull && docker compose up -d --no-build
     image: josenerydev/qmd-mcp:latest
     env_file: .env
     environment:
       XDG_CACHE_HOME: /data
     ports:
-      - "127.0.0.1:${QMD_MCP_PORT:-8181}:${QMD_MCP_PORT:-8181}"   # só localhost; ajuste para expor
+      - "127.0.0.1:${QMD_MCP_PORT:-8181}:${QMD_MCP_PORT:-8181}"   # localhost only; adjust to expose
     volumes:
       - qmd-data:/data
       - ./sources:/sources:ro
@@ -28,10 +28,10 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 120s               # 1ª subida clona + indexa (bloqueia até pronto)
+      start_period: 120s               # first boot clones + indexes (blocks until ready)
     restart: unless-stopped
 
-# Named volume dos dados gerados (clones das fontes + índice + vetores + lockfile).
-# Reset completo: docker compose down -v && docker compose up -d
+# Named volume for the generated data (source clones + index + vectors + lockfile).
+# Full reset: docker compose down -v && docker compose up -d
 volumes:
   qmd-data:
