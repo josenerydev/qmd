@@ -14,10 +14,10 @@
   `WARNING: QMD_MCP_AUTH_TOKEN not set — /mcp is OPEN`), the `[refresh]`/`qmd refresh`
   summaries, the remote-provider error messages and the MCP `refresh` tool
   description. Identifiers are untouched — `already_running`, `RefreshSummary`
-  fields, env var names and log prefixes are unchanged. Note the published
-  `josenerydev/qmd-mcp:latest` image still emits the pt-BR strings until it is
-  rebuilt, so the deploy skill's troubleshooting table matches a from-source build
-  first.
+  fields, env var names and log prefixes are unchanged. The prebuilt image was
+  republished with the English strings as `josenerydev/qmd-mcp:2.6.3-fork.2`
+  (also retagged `latest`), so the deploy skill's troubleshooting table matches
+  both a from-source build and the published image.
 
 ### Added
 

@@ -2,7 +2,7 @@
 
 Single-service stack: builds the qmd image **from this repo** and serves MCP over HTTP, with vectors and reranking done remotely against **any OpenAI-spec provider** (no local GGUF inference, no GPU needed).
 
-A prebuilt image is published at **[hub.docker.com/r/josenerydev/qmd-mcp](https://hub.docker.com/r/josenerydev/qmd-mcp)** (`josenerydev/qmd-mcp:latest`, immutable tag `2.6.3-fork.1`). The compose file references it: to skip the local build entirely, run `docker compose pull && docker compose up -d --no-build`.
+A prebuilt image is published at **[hub.docker.com/r/josenerydev/qmd-mcp](https://hub.docker.com/r/josenerydev/qmd-mcp)** (`josenerydev/qmd-mcp:latest`, immutable tag `2.6.3-fork.2`). The compose file references it: to skip the local build entirely, run `docker compose pull && docker compose up -d --no-build`.
 
 > Using an AI coding agent (Claude Code, Copilot, Codex…)? Ask it to set this up for you — the repo ships an agent skill at [`skills/qmd-deploy-setup/`](../skills/qmd-deploy-setup/SKILL.md) that walks through every step below. It's self-contained (own compose/env/sources templates) and installable **without cloning the repo**:
 >
