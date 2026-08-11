@@ -1,0 +1,28 @@
+# qmd-mcp — standalone compose (prebuilt image; no repo clone needed).
+# Shipped with the deploy-setup skill; canonical build-from-source variant
+# lives in the repo at deploy/docker-compose.yml.
+#
+#   cp env.example .env                # fill provider + tokens
+#   cp sources.example.yaml sources/sources.yaml
+#   docker compose up -d
+services:
+  qmd-mcp:
+    image: josenerydev/qmd-mcp:latest
+    env_file: .env
+    environment:
+      XDG_CACHE_HOME: /data
+    ports:
+      - "127.0.0.1:${QMD_MCP_PORT:-8181}:${QMD_MCP_PORT:-8181}"   # localhost only; adjust to expose
+    volumes:
+      - qmd-data:/data                 # clones + index + vectors
+      - ./sources:/sources:ro          # sources.yaml (+ local folders)
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:${QMD_MCP_PORT:-8181}/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 120s               # first boot blocks until indexed
+    restart: unless-stopped
+
+volumes:
+  qmd-data:

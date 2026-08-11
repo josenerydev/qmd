@@ -1,33 +1,49 @@
 ---
 name: deploy-setup
-description: Guide the user through a local qmd-mcp setup with docker compose — .env (OpenAI-spec provider), sources.yaml (git and local folders), bring-up, health/auth verification and MCP client wiring. Use when the user asks to set up, deploy, run or connect qmd as an MCP server via docker.
+description: Guide the user through a local qmd-mcp setup with docker compose — .env (OpenAI-spec provider), sources.yaml (git and local folders), bring-up, health/auth verification and MCP client wiring. Use when the user asks to set up, deploy, run or connect qmd as an MCP server via docker. Self-contained — ships its own compose/env/sources templates, no repo clone required.
 license: MIT
-compatibility: Requires Docker with the compose plugin. Works from a clone of this repo (deploy/) or standalone with the prebuilt image josenerydev/qmd-mcp.
+compatibility: Requires Docker with the compose plugin. Standalone via the prebuilt image josenerydev/qmd-mcp (templates/ shipped with this skill), or from a clone of the repo (deploy/).
 metadata:
   author: josenerydev
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # qmd-mcp — guided docker compose setup
 
 Walk the user through a working local deployment. Ask before assuming; apply the
-safety rules at the bottom at all times. Reference docs: `deploy/README.md`
-(full guide) and `deploy/.env.example` (env reference).
+safety rules at the bottom at all times. This skill is **self-contained**: the
+`templates/` folder next to this file has everything needed (standalone compose
+using the prebuilt image, env and sources examples) — the repo is NOT required.
+
+> **Installing this skill without cloning the repo** (for the user, one-liner —
+> use `.claude/skills` in a project or `~/.claude/skills` for user-wide;
+> other agent clients: extract anywhere and point the agent at `SKILL.md`):
+>
+> ```sh
+> mkdir -p ~/.claude/skills/deploy-setup && curl -fsSL https://github.com/josenerydev/qmd/tarball/main \
+>   | tar -xz --strip-components=3 -C ~/.claude/skills/deploy-setup --wildcards '*/skills/deploy-setup/*'
+> ```
 
 ## 1. Pick the layout
 
-- **From this repo** (default): work in `deploy/`; compose builds the image from
-  the checkout, or pulls `josenerydev/qmd-mcp:latest`.
-- **Standalone** (no clone): copy the example compose from
-  https://hub.docker.com/r/josenerydev/qmd-mcp into an empty folder with a
-  `sources/` subfolder next to it. Same steps below apply.
+- **Standalone** (default — no clone): create a working folder, copy the
+  templates shipped with this skill and create the sources mount:
+  ```sh
+  mkdir -p qmd-mcp/sources && cd qmd-mcp
+  cp <this-skill-dir>/templates/docker-compose.yml .
+  cp <this-skill-dir>/templates/env.example .env
+  cp <this-skill-dir>/templates/sources.example.yaml sources/sources.yaml
+  ```
+  The compose pulls `josenerydev/qmd-mcp:latest` — nothing is built locally.
+- **From the repo** (contributors / building from source): work in `deploy/` of
+  https://github.com/josenerydev/qmd — same files, plus `build:` from checkout.
 
 Check prerequisites first: `docker compose version`. If the default port is
 busy (`ss -ltn | grep 8181`), plan a different `QMD_MCP_PORT`.
 
 ## 2. Configure `.env`
 
-`cp .env.example .env`, then fill in with the user:
+With `.env` in place (copied above), fill in with the user:
 
 | Ask the user | Env vars |
 |---|---|
@@ -47,8 +63,8 @@ no `/rerank`, results degrade gracefully to search order; the stack still works.
 
 ## 3. Declare the sources
 
-`cp sources/sources.example.yaml sources/sources.yaml`, then build the list
-with the user. Each source becomes a searchable collection:
+Edit `sources/sources.yaml` (created in step 1) with the user. Each source
+becomes a searchable collection:
 
 ```yaml
 sources:
@@ -70,8 +86,9 @@ sources:
 ## 4. Bring it up
 
 ```sh
-docker compose pull && docker compose up -d --no-build   # prebuilt image
-# or: docker compose up -d --build                       # build from this repo
+docker compose up -d                    # standalone: pulls the prebuilt image
+# from the repo's deploy/: docker compose pull && docker compose up -d --no-build
+#                     or:  docker compose up -d --build   (build from source)
 docker compose logs -f qmd-mcp
 ```
 
