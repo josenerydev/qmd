@@ -3285,6 +3285,7 @@ function showHelp(): void {
   console.log("  qmd init                      - Create a project-local .qmd index");
   console.log("  qmd status                    - View index + collection health");
   console.log("  qmd update [--pull]           - Re-index collections (optionally git pull first)");
+  console.log("  qmd refresh [-c <name>]       - git pull + reindex + embed the configured sources (no restart)");
   console.log("  qmd embed [-f] [-c <name>]    - Generate/refresh vector embeddings");
   console.log("    --max-docs-per-batch <n>    - Cap docs loaded into memory per embedding batch");
   console.log("    --max-batch-mb <n>          - Cap UTF-8 MB loaded into memory per embedding batch");
@@ -4294,6 +4295,33 @@ if (isMain) {
     case "update":
       await updateCollections();
       break;
+
+    case "refresh": {
+      // Atualiza as fontes configuradas SEM restart: git pull + reindex + embed.
+      // Usa a MESMA primitiva da tool MCP `refresh` (SDK store, resolve provider
+      // remoto e sincroniza config internamente). Gatilho típico: cron do container.
+      const { createStore: createSdkStore, refreshSources, formatRefreshSummary } =
+        await import("../index.js");
+      const cfgPath = getConfigPath();
+      const sdkStore = await createSdkStore({
+        dbPath: storeDbPathOverride ?? getDefaultDbPath(),
+        ...(existsSync(cfgPath) ? { configPath: cfgPath } : {}),
+      });
+      try {
+        // -c filtra (subconjunto das fontes); sem -c = todas. Só filtra, não injeta.
+        const refreshCollections = resolveCollectionFilter(cli.opts.collection, false);
+        const summary = await refreshSources(sdkStore, {
+          collections: refreshCollections.length > 0 ? refreshCollections : undefined,
+          log: (m) => console.error(m),
+        });
+        console.log(formatRefreshSummary(summary));
+      } catch (error) {
+        exitWithError(error);
+      } finally {
+        await sdkStore.close();
+      }
+      break;
+    }
 
     case "embed":
       try {

@@ -26,6 +26,8 @@ import {
   addLineNumbers,
   getDefaultDbPath,
   DEFAULT_MULTI_GET_MAX_BYTES,
+  refreshSources,
+  formatRefreshSummary,
   type QMDStore,
   type ExpandedQuery,
   type IndexStatus,
@@ -656,6 +658,36 @@ Intent-aware lex (C++ performance, not sports):
       return {
         content: [{ type: "text", text: summary.join('\n') }],
         structuredContent: status,
+      };
+    }
+  );
+
+  // ---------------------------------------------------------------------------
+  // Tool: refresh (pull + reindex + embed — atualiza o índice SEM restart)
+  // Primeira tool MUTANTE do servidor: puxa das fontes configuradas e reindexa.
+  // ---------------------------------------------------------------------------
+
+  server.registerTool(
+    "refresh",
+    {
+      title: "Refresh Sources",
+      description: "Atualiza o índice a partir das fontes configuradas SEM reiniciar: faz git pull das collections git, reindexa (varre o fs) e embeda o que falta. Use após publicar (git push) um documento para torná-lo pesquisável. Opcionalmente escope com `collections` (apenas FILTRA as fontes existentes — nunca aceita URL/caminho). Um refresh já em curso retorna 'already_running'.",
+      annotations: { readOnlyHint: false, openWorldHint: true },
+      inputSchema: {
+        collections: z.array(z.string()).optional().describe(
+          "Filtra quais collections atualizar (subconjunto das fontes já configuradas). " +
+          "Omitir = todas. Só filtra a lista existente; não introduz fonte nova."
+        ),
+      },
+    },
+    async ({ collections }) => {
+      const summary = await refreshSources(store, {
+        collections,
+        log: (msg) => console.error(msg),
+      });
+      return {
+        content: [{ type: "text", text: formatRefreshSummary(summary) }],
+        structuredContent: summary,
       };
     }
   );

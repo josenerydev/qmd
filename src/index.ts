@@ -124,6 +124,10 @@ export { getDefaultDbPath } from "./store.js";
 // Re-export Maintenance class for CLI housekeeping operations
 export { Maintenance } from "./maintenance.js";
 
+// Re-export refresh primitive (shared by the MCP `refresh` tool and `qmd refresh`)
+export { refreshSources, formatRefreshSummary } from "./refresh.js";
+export type { RefreshSummary, CollectionRefresh } from "./refresh.js";
+
 /**
  * Progress info emitted during update() for each file processed.
  */
