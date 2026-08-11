@@ -3,8 +3,8 @@
  *
  * Implementa o contrato `LLM` (embed/embedBatch/rerank + stubs) contra um endpoint
  * HTTP configurável, compatível com a API da OpenAI (embeddings) e com rerank
- * estilo Cohere. Serve qualquer proxy OpenAI-compat — hoje o alvo é um LiteLLM
- * local, que roteia para o provider upstream (ex.: OpenRouter). Sem inferência
+ * estilo Cohere. Serve qualquer provedor/proxy OpenAI-compat — direto (OpenAI,
+ * OpenRouter, ...) ou atrás de um gateway, à escolha do deploy. Sem inferência
  * local, sem modelos GGUF. Selecionado por env (ver getDefaultLLM em llm.ts).
  *
  * Importa apenas TIPOS de llm.ts → sem dependência de runtime (evita ciclo de import).

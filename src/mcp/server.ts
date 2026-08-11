@@ -832,9 +832,9 @@ export async function startMcpHttpServer(
     const pathname = nodeReq.url || "/";
 
     try {
-      // --- Auth do backend MCP (patch LOCAL do fork; não enviar ao upstream) ----
+      // --- Auth do backend MCP ---------------------------------------------------
       // Exige `Authorization: Bearer <QMD_MCP_AUTH_TOKEN>` nas rotas /mcp (POST/GET/
-      // DELETE). O gateway LiteLLM apresenta esse token (auth_type: bearer_token).
+      // DELETE); o cliente (ou gateway intermediário) apresenta esse token.
       // `/health` (e os REST /query,/search) ficam FORA do guard. Token ausente no
       // ambiente = modo aberto (fail-open, avisado no boot) p/ dev local e rollback.
       if (pathname === "/mcp") {
