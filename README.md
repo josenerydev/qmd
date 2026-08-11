@@ -16,7 +16,7 @@ This fork ([josenerydev/qmd](https://github.com/josenerydev/qmd)) extends upstre
 - **MCP bearer auth** — `/mcp` requires `Authorization: Bearer <QMD_MCP_AUTH_TOKEN>` when the env var is set (fail-open with a boot warning when unset, for local dev).
 - **MCP tool `get_raw`** — fetch raw file bytes of any type from the sources, bypassing the index.
 - **On-demand refresh without restart** — MCP tool `refresh` and CLI `qmd refresh`: `git pull` the configured sources, reindex and embed what's missing, serialized by a lockfile. Optional periodic refresh in the container via `REFRESH_INTERVAL`.
-- **Ready-to-run deployment** — [`deploy/`](deploy/README.md) has a single-service docker compose that builds the image from this repo, indexes N sources (local + git, with sparse-checkout `subdir` and per-source `mask` globs) and serves MCP over HTTP.
+- **Ready-to-run deployment** — [`deploy/`](deploy/README.md) has a single-service docker compose that builds the image from this repo, indexes N sources (local + git, with sparse-checkout `subdir` and per-source `mask` globs) and serves MCP over HTTP. A prebuilt image is on Docker Hub: [josenerydev/qmd-mcp](https://hub.docker.com/r/josenerydev/qmd-mcp).
 
 Everything below this section is the upstream README, kept intact.
 

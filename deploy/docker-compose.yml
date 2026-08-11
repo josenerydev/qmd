@@ -12,7 +12,9 @@ services:
     build:
       context: ..
       dockerfile: deploy/Dockerfile
-    image: qmd-mcp:latest
+    # imagem pré-buildada no Docker Hub; sem ela local, o compose builda do repo.
+    # Pular o build: docker compose pull && docker compose up -d --no-build
+    image: josenerydev/qmd-mcp:latest
     env_file: .env
     environment:
       XDG_CACHE_HOME: /data

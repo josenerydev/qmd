@@ -2,6 +2,8 @@
 
 Single-service stack: builds the qmd image **from this repo** and serves MCP over HTTP, with vectors and reranking done remotely against **any OpenAI-spec provider** (no local GGUF inference, no GPU needed).
 
+A prebuilt image is published at **[hub.docker.com/r/josenerydev/qmd-mcp](https://hub.docker.com/r/josenerydev/qmd-mcp)** (`josenerydev/qmd-mcp:latest`, immutable tag `2.6.3-fork.1`). The compose file references it: to skip the local build entirely, run `docker compose pull && docker compose up -d --no-build`.
+
 ## Prerequisites
 
 - Docker with the compose plugin
@@ -54,11 +56,46 @@ curl http://localhost:8181/health
 curl -H "Authorization: Bearer $QMD_MCP_AUTH_TOKEN" http://localhost:8181/mcp   # 401 without the token
 ```
 
-Point any MCP client (Claude Code, Cursor…) at `http://localhost:8181/mcp` with the bearer token, e.g. for Claude Code:
+## 5. MCP client setup
+
+Point any MCP client at `http://localhost:8181/mcp` (streamable HTTP) with the bearer token.
+
+**Claude Code** — CLI:
 
 ```sh
 claude mcp add --transport http qmd http://localhost:8181/mcp \
   --header "Authorization: Bearer <QMD_MCP_AUTH_TOKEN>"
+```
+
+…or declaratively, in the project's `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "qmd": {
+      "type": "http",
+      "url": "http://localhost:8181/mcp",
+      "headers": {
+        "Authorization": "Bearer <QMD_MCP_AUTH_TOKEN>"
+      }
+    }
+  }
+}
+```
+
+**Cursor** (`~/.cursor/mcp.json`) and other clients that speak streamable HTTP use the same shape:
+
+```json
+{
+  "mcpServers": {
+    "qmd": {
+      "url": "http://localhost:8181/mcp",
+      "headers": {
+        "Authorization": "Bearer <QMD_MCP_AUTH_TOKEN>"
+      }
+    }
+  }
+}
 ```
 
 Available MCP tools include `search`/`query`/`get` from upstream plus this fork's `get_raw` (raw file bytes) and `refresh` (pull + reindex + embed on demand — use it after pushing new docs to a source).
