@@ -1,5 +1,5 @@
 ---
-name: deploy-setup
+name: qmd-deploy-setup
 description: Guide the user through a local qmd-mcp setup with docker compose — .env (OpenAI-spec provider), sources.yaml (git and local folders), bring-up, health/auth verification and MCP client wiring. Use when the user asks to set up, deploy, run or connect qmd as an MCP server via docker. Self-contained — ships its own compose/env/sources templates, no repo clone required.
 license: MIT
 compatibility: Requires Docker with the compose plugin. Standalone via the prebuilt image josenerydev/qmd-mcp (templates/ shipped with this skill), or from a clone of the repo (deploy/).
@@ -20,8 +20,8 @@ using the prebuilt image, env and sources examples) — the repo is NOT required
 > other agent clients: extract anywhere and point the agent at `SKILL.md`):
 >
 > ```sh
-> mkdir -p ~/.claude/skills/deploy-setup && curl -fsSL https://github.com/josenerydev/qmd/tarball/main \
->   | tar -xz --strip-components=3 -C ~/.claude/skills/deploy-setup --wildcards '*/skills/deploy-setup/*'
+> mkdir -p ~/.claude/skills/qmd-deploy-setup && curl -fsSL https://github.com/josenerydev/qmd/tarball/main \
+>   | tar -xz --strip-components=3 -C ~/.claude/skills/qmd-deploy-setup --wildcards '*/skills/qmd-deploy-setup/*'
 > ```
 
 ## 1. Pick the layout

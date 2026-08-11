@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Renamed the deploy skill `skills/deploy-setup` → `skills/qmd-deploy-setup`, so
+  the skill name identifies the product when installed alongside other skills
+  (e.g. in `~/.claude/skills` or another repo's `.claude/skills`). The no-clone
+  install one-liner changed accordingly; reinstall under the new folder name.
+
 ### Added
 
 - MCP tool `get_raw`: retrieves the raw bytes of any file in a collection by path

@@ -1,5 +1,5 @@
 # qmd-mcp — standalone compose (prebuilt image; no repo clone needed).
-# Shipped with the deploy-setup skill; canonical build-from-source variant
+# Shipped with the qmd-deploy-setup skill; canonical build-from-source variant
 # lives in the repo at deploy/docker-compose.yml.
 #
 #   cp env.example .env                # fill provider + tokens
