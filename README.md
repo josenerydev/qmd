@@ -8,6 +8,18 @@ QMD combines BM25 full-text search, vector semantic search, and LLM re-ranking�
 
 You can read more about QMD's progress in the [CHANGELOG](CHANGELOG.md).
 
+## ✨ This fork vs upstream
+
+This fork ([josenerydev/qmd](https://github.com/josenerydev/qmd)) extends upstream [tobi/qmd](https://github.com/tobi/qmd) with a remote-first deployment path — vector search and reranking against **any OpenAI-spec provider**, served as an **MCP endpoint via docker compose**:
+
+- **Remote LLM provider (OpenAI spec)** — embeddings and rerank against any OpenAI-compatible endpoint (OpenAI, OpenRouter, your own gateway) instead of local GGUF inference. Enable with `QMD_LLM_PROVIDER=remote` + `QMD_LLM_BASE_URL` + `QMD_LLM_API_KEY`; switching providers is a config-only change.
+- **MCP bearer auth** — `/mcp` requires `Authorization: Bearer <QMD_MCP_AUTH_TOKEN>` when the env var is set (fail-open with a boot warning when unset, for local dev).
+- **MCP tool `get_raw`** — fetch raw file bytes of any type from the sources, bypassing the index.
+- **On-demand refresh without restart** — MCP tool `refresh` and CLI `qmd refresh`: `git pull` the configured sources, reindex and embed what's missing, serialized by a lockfile. Optional periodic refresh in the container via `REFRESH_INTERVAL`.
+- **Ready-to-run deployment** — [`deploy/`](deploy/README.md) has a single-service docker compose that builds the image from this repo, indexes N sources (local + git, with sparse-checkout `subdir` and per-source `mask` globs) and serves MCP over HTTP.
+
+Everything below this section is the upstream README, kept intact.
+
 ## Quick Start
 
 ```sh

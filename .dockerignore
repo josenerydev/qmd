@@ -1,0 +1,7 @@
+.git
+node_modules
+dist
+models
+deploy/sources
+deploy/.env*
+!deploy/.env.example

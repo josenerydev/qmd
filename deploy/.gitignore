@@ -1,0 +1,5 @@
+# segredos e config real ficam fora do git — versione só os *.example
+.env*
+!.env.example
+sources/*
+!sources/sources.example.yaml

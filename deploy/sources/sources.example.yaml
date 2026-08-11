@@ -1,0 +1,34 @@
+# qmd-mcp — fontes indexadas (multi-fonte).
+# Copie para sources.yaml (mesma pasta ./sources/). O container lê /sources/sources.yaml.
+# Sem este arquivo, cai no modo FONTE ÚNICA (QMD_SOURCE_REPO_URL do .env).
+#
+# SEM SEGREDOS: tokens ficam no .env e são referenciados por `tokenEnv`.
+# - fonte git   → clonada na subida em /data/<name>
+# - fonte local → pasta em ./sources/<path> (montada em /sources/<path>)
+#
+# subdir (OPCIONAL): escopa a fonte a uma subpasta do repo/pasta.
+#   - COM subdir  → baixa SÓ a subpasta (git sparse-checkout) e indexa só ela.
+#   - SEM subdir  → repo/pasta inteiro.
+# mask (OPCIONAL): glob dos arquivos indexados; default '**/*.md'.
+#
+# Merge: a query une todas as collections; escope por nome com o parâmetro `collections`.
+
+sources:
+  # --- repo git público ------------------------------------------------------
+  - name: docs
+    git: https://github.com/<org>/<repo>
+    branch: main
+    context: "Documentação do produto — decisões, guias e referências."
+
+  # --- repo git privado (token no .env, referenciado por nome) ---------------
+  # - name: internal
+  #   git: https://dev.azure.com/<org>/<proj>/_git/<repo>
+  #   tokenEnv: INTERNAL_REPO_TOKEN     # nome da var no .env (o token NÃO fica aqui)
+  #   subdir: docs                      # baixa e indexa só esta pasta
+  #   mask: "**/*.{md,txt}"
+  #   context: "Base interna — sobrepõe a documentação pública onde especificado."
+
+  # --- pasta local (montada em ./sources/<path>) ------------------------------
+  # - name: notes
+  #   path: notes
+  #   context: "Notas locais."

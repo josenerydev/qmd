@@ -1,0 +1,35 @@
+# qmd-mcp — builda a imagem do próprio repo e serve o MCP (HTTP) em localhost.
+#
+#   cp .env.example .env            # preencha provider + token
+#   cp sources/sources.example.yaml sources/sources.yaml
+#   docker compose up -d
+#
+# LLM via spec OpenAI DIRETO com qualquer provedor compatível (QMD_LLM_BASE_URL
+# no .env). Sem gateway embutido: quem quiser um (ex.: LiteLLM) aponta a base
+# URL para ele. O /mcp exige Bearer (QMD_MCP_AUTH_TOKEN); sem token fica ABERTO.
+services:
+  qmd-mcp:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: qmd-mcp:latest
+    env_file: .env
+    environment:
+      XDG_CACHE_HOME: /data
+    ports:
+      - "127.0.0.1:${QMD_MCP_PORT:-8181}:${QMD_MCP_PORT:-8181}"   # só localhost; ajuste para expor
+    volumes:
+      - qmd-data:/data
+      - ./sources:/sources:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:${QMD_MCP_PORT:-8181}/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 120s               # 1ª subida clona + indexa (bloqueia até pronto)
+    restart: unless-stopped
+
+# Named volume dos dados gerados (clones das fontes + índice + vetores + lockfile).
+# Reset completo: docker compose down -v && docker compose up -d
+volumes:
+  qmd-data:
